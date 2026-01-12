@@ -115,10 +115,6 @@ class News(BaseModel):
     inforId: Optional[str] = None # Foreign key to InfoSource
 
 # Response Models (List wrappers)
-class CompanyListResponse(BaseModel):
-    total: int
-    data: List[Company]
-
 class CompanySearchItem(BaseModel):
     id: str
     label: str
@@ -130,7 +126,7 @@ class FacetItem(BaseModel):
     count: int
 
 class Facets(BaseModel):
-    Publisher: List[FacetItem] = []
+    publish_entity: List[FacetItem] = []
     Category: List[FacetItem] = []
     NoticeType: List[FacetItem] = []
     Industry: List[FacetItem] = []

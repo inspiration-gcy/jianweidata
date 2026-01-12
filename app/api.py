@@ -3,12 +3,11 @@ from typing import List, Optional, Dict
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-import os
 import json
 
 from app.models import (
     Company,
-    CompanyListResponse, NoticeListResponse, EventListResponse, NewsListResponse,
+    NoticeListResponse, EventListResponse, NewsListResponse,
     NoticeFilterRequest, SectorInformation, CompanySearchItem,
     IPOData, IPODataBasic, IPOListResponse,
     IPORank, IPORankBasic, IPORankListResponse,
@@ -35,28 +34,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Jianwei Data API", lifespan=lifespan)
 
 # --- Companies ---
-@app.get("/companies", response_model=CompanyListResponse)
-async def get_companies(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    stock_code: Optional[str] = None,
-    market: Optional[int] = None,
-    db_session: Session = Depends(get_db)
-):
-    query = db_session.query(CompanyModel)
-    
-    if stock_code:
-        query = query.filter(CompanyModel.stockCode == stock_code)
-    if market is not None:
-        query = query.filter(CompanyModel.Market == market)
-        
-    total = query.count()
-    companies = query.offset((page - 1) * page_size).limit(page_size).all()
-    
-    return {
-        "total": total,
-        "data": companies
-    }
 
 @app.get("/companies/search", response_model=List[CompanySearchItem])
 async def search_companies(
@@ -147,16 +124,6 @@ async def get_notices(
     # Build query
     query = db_session.query(NoticeModel)
     
-    # Publisher Filtering (complex logic: stockCode/Ticker/Publisher match)
-    if request.publish_entity:
-        # This is tricky in SQL without massive ORs. 
-        # Simplified: check if stockCode OR Ticker is in list
-        conditions = []
-        if request.publish_entity:
-             conditions.append(NoticeModel.StockCode.in_(request.publish_entity))
-             conditions.append(NoticeModel.StockTicker.in_(request.publish_entity))
-             query = query.filter(or_(*conditions))
-
     # Standard Filtering
     if request.stock_code:
         query = query.filter(NoticeModel.StockCode.in_(request.stock_code))
@@ -216,24 +183,46 @@ async def get_notices(
     # Pagination
     notices = query.offset((current_page - 1) * current_page_size).limit(current_page_size).all()
     
-    # Facets (simplified for performance: separate queries)
-    # Note: Calculating facets on filtered result set in SQL is expensive. 
-    # For now, we return empty facets or implement simplified version.
-    # To properly implement faceted search, we'd need aggregation queries.
+    # Facets Implementation
+    from sqlalchemy import func
     
-    facets = {
-        "Publisher": [],
-        "Category": [],
-        "NoticeType": [],
-        "Industry": [],
-        "MarketType": [],
-        "Province": []
+    facet_fields = {
+        "publish_entity": NoticeModel.StockCode,
+        "Category": NoticeModel.Category,
+        "NoticeType": NoticeModel.NoticeType,
+        "Industry": NoticeModel.Industry,
+        "MarketType": NoticeModel.MarketType,
+        "Province": NoticeModel.Province
     }
     
-    # Example facet implementation for 'Category' (only top 20 global, or filtered?)
-    # Ideally filtered.
-    # Implementing filtered facets for all fields is too heavy for a simple SQL backend.
-    # We will skip facets for now or implement just one as example if requested.
+    facets = {}
+    
+    for field_name, model_col in facet_fields.items():
+        # Special handling for publish_entity to return "Code Ticker" format
+        if field_name == "publish_entity":
+             # Group by StockCode, but fetch a sample StockTicker to display
+             agg_query = query.with_entities(
+                 NoticeModel.StockCode, 
+                 func.max(NoticeModel.StockTicker), # Get a ticker for this code
+                 func.count(NoticeModel.StockCode)
+             ).group_by(NoticeModel.StockCode).order_by(func.count(NoticeModel.StockCode).desc()).limit(50)
+             
+             results = agg_query.all()
+             facets[field_name] = [
+                 {"name": f"{r[0]} {r[1]}", "count": r[2]} 
+                 for r in results if r[0] is not None
+             ]
+             continue
+
+        # Construct aggregation query
+        agg_query = query.with_entities(model_col, func.count(model_col)).group_by(model_col).order_by(func.count(model_col).desc()).limit(50)
+        
+        results = agg_query.all()
+        
+        facets[field_name] = [
+            {"name": str(r[0]), "count": r[1]} 
+            for r in results if r[0] is not None
+        ]
     
     return {
         "total": total,
@@ -272,12 +261,16 @@ async def get_events(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     event_id: Optional[str] = None,
+    keyword: Optional[str] = Query(None, description="Fuzzy search by event title"),
     db_session: Session = Depends(get_db)
 ):
     query = db_session.query(EventModel)
     
     if event_id:
         query = query.filter(EventModel.event_id == event_id)
+        
+    if keyword:
+        query = query.filter(EventModel.title.ilike(f"%{keyword}%"))
         
     total = query.count()
     events = query.offset((page - 1) * page_size).limit(page_size).all()
