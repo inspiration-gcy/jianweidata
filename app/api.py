@@ -286,12 +286,16 @@ async def get_news(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     event_id: Optional[str] = None,
+    keyword: Optional[str] = Query(None, description="Fuzzy search by news title"),
     db_session: Session = Depends(get_db)
 ):
     query = db_session.query(NewsModel)
     
     if event_id:
         query = query.filter(NewsModel.event_id == event_id)
+        
+    if keyword:
+        query = query.filter(NewsModel.title.ilike(f"%{keyword}%"))
         
     total = query.count()
     news = query.offset((page - 1) * page_size).limit(page_size).all()

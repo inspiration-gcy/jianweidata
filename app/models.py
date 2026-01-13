@@ -98,7 +98,7 @@ class Event(BaseModel):
     max_publish_date: Optional[str] = None
     count: Optional[int] = None
     heat: Optional[float] = None
-    sentiment: Optional[float] = None
+    sentiment: Optional[str] = None # Changed from float to str to handle "正面"/"负面"
     companies: Optional[str] = None
 
 # 4. News Model

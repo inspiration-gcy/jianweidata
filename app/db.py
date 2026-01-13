@@ -118,7 +118,7 @@ class EventModel(Base):
     max_publish_date = Column(String)
     count = Column(Integer)
     heat = Column(Float)
-    sentiment = Column(Float)
+    sentiment = Column(String) # Changed from Float to String
     companies = Column(Text)
 
 class NewsModel(Base):
