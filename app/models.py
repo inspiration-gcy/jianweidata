@@ -257,6 +257,7 @@ class IPOData(BaseModel):
     LatestDate: Optional[str] = None
     Status: Optional[str] = None
     timeline: Optional[List[IPOTimeline]] = None
+    category: Optional[str] = None
     
     stockCode: Optional[str] = None
     registeredCapital: Optional[float] = None

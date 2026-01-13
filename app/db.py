@@ -212,6 +212,7 @@ class IPORankModel(Base):
     ReviewQuestions = Column(String)
     Sector = Column(Integer)
     HasQa = Column(Integer)
+    category = Column(String, index=True)
     
     stockCode = Column(String)
     registeredCapital = Column(Float)
