@@ -309,22 +309,16 @@ async def get_news(
 @app.get("/ipo/list", response_model=IPOListResponse)
 async def get_ipo_list(
     category: str = Query("首次公开发行", description="Category filter"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
     db_session: Session = Depends(get_db)
 ):
     query = db_session.query(IPODataModel).filter(IPODataModel.category == category)
     total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    
+    items = query.all()
     
     # Map to basic model
     result_data = []
     for item in items:
-        # Timeline is JSON string in DB, model expects list/dict?
-        # Model IPODataBasic expects timeline field.
-        # If it's a string in DB, we might need to parse it or let Pydantic handle it?
-        # Pydantic usually expects the type defined. If defined as Any/List, and we give string, it might fail.
-        # Let's try to parse if string.
         tl = item.timeline
         if isinstance(tl, str):
             try:
@@ -372,15 +366,19 @@ async def get_ipo_detail(ipo_id: str, db_session: Session = Depends(get_db)):
     return item
 
 # --- IPO Rank ---
-
 @app.get("/ipo/rank/list", response_model=IPORankListResponse)
 async def get_ipo_rank_list(
     category: str = Query("首次公开发行", description="Category filter"),
+    listing_market: Optional[str] = Query(None, description="Listing Market filter"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db_session: Session = Depends(get_db)
 ):
     query = db_session.query(IPORankModel).filter(IPORankModel.category == category)
+    
+    if listing_market:
+        query = query.filter(IPORankModel.ListingMarket == listing_market)
+        
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     
