@@ -1,18 +1,19 @@
 from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi.responses import RedirectResponse
 from typing import List, Optional, Dict
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_,func
 import json
 
 from app.models import (
     Company,
     NoticeListResponse, EventListResponse, NewsListResponse,
     NoticeFilterRequest, SectorInformation, CompanySearchItem,
-    IPOData, IPODataBasic, IPOListResponse,
-    IPORank, IPORankBasic, IPORankListResponse,
+    IPODataBasic, IPOListResponse,
+    IPORankBasic, IPORankListResponse,
     TimelineDetailListResponse,
-    IPOReview, IPOReviewBasic, IPOReviewListResponse
+    IPOReviewBasic, IPOReviewListResponse
 )
 from app.db import (
     get_db, 
@@ -184,8 +185,6 @@ async def get_notices(
     notices = query.offset((current_page - 1) * current_page_size).limit(current_page_size).all()
     
     # Facets Implementation
-    from sqlalchemy import func
-    
     facet_fields = {
         "publish_entity": NoticeModel.StockCode,
         "Category": NoticeModel.Category,
@@ -420,7 +419,7 @@ async def get_ipo_rank_detail(rank_id: str, db_session: Session = Depends(get_db
 
 @app.get("/timeline/details", response_model=TimelineDetailListResponse)
 async def get_timeline_details(
-    stock_code: str = Query(..., description="Stock Code to filter timeline details"),
+    stock_code: str = Query("000001", description="Stock Code to filter timeline details"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db_session: Session = Depends(get_db)
@@ -507,4 +506,4 @@ async def get_sector_information(sector: str = Query(..., description="The secto
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Jianwei Data API. Check /docs for documentation."}
+    return RedirectResponse(url="/docs")
