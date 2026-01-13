@@ -309,11 +309,12 @@ async def get_news(
 
 @app.get("/ipo/list", response_model=IPOListResponse)
 async def get_ipo_list(
+    category: str = Query("首次公开发行", description="Category filter"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db_session: Session = Depends(get_db)
 ):
-    query = db_session.query(IPODataModel)
+    query = db_session.query(IPODataModel).filter(IPODataModel.category == category)
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     
@@ -373,8 +374,8 @@ async def get_ipo_detail(ipo_id: str, db_session: Session = Depends(get_db)):
 
 # --- IPO Rank ---
 
-@app.get("/ipo/list", response_model=IPOListResponse)
-async def get_ipo_list(
+@app.get("/ipo/rank/list", response_model=IPORankListResponse)
+async def get_ipo_rank_list(
     category: str = Query("首次公开发行", description="Category filter"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
