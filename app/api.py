@@ -7,7 +7,7 @@ from sqlalchemy import or_,func
 import json
 
 from app.models import (
-    Company,
+    Company,IPORank,IPOData,IPOReview,
     NoticeListResponse, EventListResponse, NewsListResponse,
     NoticeFilterRequest, SectorInformation, CompanySearchItem,
     IPODataBasic, IPOListResponse,
