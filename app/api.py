@@ -196,6 +196,10 @@ async def get_notices(
     
     facets = {}
     
+    # Calculate publish_entity count (total unique entities in current query)
+    publish_entity_count = query.with_entities(NoticeModel.StockCode).distinct().count()
+    facets["publish_entity_count"] = publish_entity_count
+    
     for field_name, model_col in facet_fields.items():
         # Special handling for publish_entity to return "Code Ticker" format
         if field_name == "publish_entity":

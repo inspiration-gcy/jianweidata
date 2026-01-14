@@ -127,6 +127,7 @@ class FacetItem(BaseModel):
 
 class Facets(BaseModel):
     publish_entity: List[FacetItem] = []
+    publish_entity_count: int = 0 # Total unique entities count
     Category: List[FacetItem] = []
     NoticeType: List[FacetItem] = []
     Industry: List[FacetItem] = []
