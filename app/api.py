@@ -452,7 +452,9 @@ async def get_ipo_review_list(
             Entity=item.Entity,
             CurrentStatuses=item.CurrentStatuses,
             LastUpdateDate=item.LastUpdateDate,
-            ReviewStatus=item.ReviewStatus
+            ReviewStatus=item.ReviewStatus,
+            Reviewers=item.Reviewers,
+            ReviewQuestions=item.ReviewQuestions
         ))
         
     return {

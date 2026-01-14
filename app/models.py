@@ -411,6 +411,8 @@ class IPOReviewBasic(BaseModel):
     CurrentStatuses: Optional[str] = None
     LastUpdateDate: Optional[str] = None
     ReviewStatus: Optional[str] = None
+    Reviewers: Optional[str] = None
+    ReviewQuestions: Optional[str] = None
 
 class IPOReviewListResponse(BaseModel):
     total: int

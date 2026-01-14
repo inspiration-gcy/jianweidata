@@ -153,6 +153,7 @@ class IPODataModel(Base):
     LatestDate = Column(String, index=True)
     Status = Column(String, index=True)
     timeline = Column(Text) # JSON string
+    category = Column(String, index=True)
     
     stockCode = Column(String)
     registeredCapital = Column(Float)
