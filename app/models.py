@@ -156,11 +156,13 @@ class NoticeFilterRequest(BaseModel):
     end_date: Optional[str] = None
     company_search: Optional[str] = None # Fuzzy search for code/ticker
     
-    title_search: Optional[str] = None
-    title_match_mode: Optional[str] = "all" # all, any, none
+    title_search_all: Optional[str] = None
+    title_search_any: Optional[str] = None
+    title_search_none: Optional[str] = None
     
-    content_search: Optional[str] = None # Maps to Preview
-    content_match_mode: Optional[str] = "all"
+    content_search_all: Optional[str] = None
+    content_search_any: Optional[str] = None
+    content_search_none: Optional[str] = None
 
 class EventListResponse(BaseModel):
     total: int

@@ -168,12 +168,20 @@ async def get_notices(
         return q
 
     # Title Search
-    if request.title_search:
-        query = apply_keyword_filter(query, NoticeModel.Title, request.title_search, request.title_match_mode)
+    if request.title_search_all:
+        query = apply_keyword_filter(query, NoticeModel.Title, request.title_search_all, "all")
+    if request.title_search_any:
+        query = apply_keyword_filter(query, NoticeModel.Title, request.title_search_any, "any")
+    if request.title_search_none:
+        query = apply_keyword_filter(query, NoticeModel.Title, request.title_search_none, "none")
         
     # Content Search (Preview)
-    if request.content_search:
-        query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search, request.content_match_mode)
+    if request.content_search_all:
+        query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search_all, "all")
+    if request.content_search_any:
+        query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search_any, "any")
+    if request.content_search_none:
+        query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search_none, "none")
         
     # Total count (slow on large dataset, maybe optimize later)
     total = query.count()
