@@ -50,10 +50,30 @@
 ### 1. 首次运行：导入数据
 由于本项目改为使用 SQLite 数据库，**初次使用**或**数据更新**时，必须执行数据加载命令，将 CSV 数据导入 `jianweidata.db` 数据库文件。
 
+#### 导入所有数据（默认追加，不清空旧数据）
 ```bash
 python manage.py load
 ```
 *注意：由于数据量较大（特别是公告数据），导入过程可能需要几分钟时间。导入完成后，会在当前目录生成 `jianweidata.db` 文件。*
+
+#### 导入指定模型数据（自动清空旧数据）
+如果只想更新特定表的数据（例如只更新 IPO 数据），可以使用 `--model` 参数。这会自动清空该表原有的数据并重新加载。
+
+支持的模型名称：
+- `CompanyModel` (公司信息)
+- `NoticeModel` (公告)
+- `EventModel` (事件)
+- `NewsModel` (新闻)
+- `SectorInfoModel` (行业信息，同时会重置关联新闻)
+- `IPODataModel` (IPO 基础数据)
+- `IPORankModel` (IPO 排队数据)
+- `TimelineDetailModel` (时间轴详情)
+- `IPOReviewModel` (IPO 审核数据)
+
+示例：
+```bash
+python manage.py load --model IPODataModel
+```
 
 ### 2. 启动服务
 数据导入完成后，即可启动 API 服务。

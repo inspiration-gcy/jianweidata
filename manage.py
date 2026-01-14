@@ -3,7 +3,7 @@ import os
 import uvicorn
 from app.database import db
 
-def load_data_only(directory):
+def load_data_only(directory, model=None):
     """
     Test loading data from the directory without starting the web server.
     Useful for verifying data integrity and loading logic.
@@ -14,7 +14,7 @@ def load_data_only(directory):
         return
         
     try:
-        db.load_from_directory(directory)
+        db.load_from_directory(directory, model_name=model)
         print("--- Data Load Successful ---")
         # Since we moved to database queries, these attributes no longer exist on the db object.
         # We can just print a success message.
@@ -43,6 +43,7 @@ def main():
     # Usage: python manage.py load --dir /path/to/data
     load_parser = subparsers.add_parser("load", help="Load data from directory into database")
     load_parser.add_argument("--dir", default="/Users/bytedance/pycodes/jianweidata/data", help="Data directory path")
+    load_parser.add_argument("--model", default=None, help="Specific model to load (e.g., CompanyModel, IPODataModel). Clears old data for this model.")
 
     # Command: start
     # Usage: python manage.py start --dir /path/to/data --port 8000
@@ -55,7 +56,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "load":
-        load_data_only(args.dir)
+        load_data_only(args.dir, args.model)
     elif args.command == "start":
         start_server(args.dir, args.host, args.port, args.reload)
     else:
