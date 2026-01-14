@@ -33,11 +33,11 @@
 ## 数据准备
 
 项目默认从 `data/` 目录加载数据。该目录应包含以下核心 CSV 文件：
-- `company_list_with_details.csv`
-- `jianweidata_event.csv`
-- `jianweidata_news.csv`
-- `all_sector_info.csv`
-- `ipo_data_with_timeline.csv`
+- `company.csv`
+- `event.csv`
+- `news.csv`
+- `sector_info.csv`
+- `ipo_data.csv`
 - `ipo_rank.csv`
 - `timeline_details.csv`
 - `ipo_review.csv`

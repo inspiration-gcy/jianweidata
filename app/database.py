@@ -14,15 +14,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 FILE_PATHS = {
-    "companies": os.path.join(DATA_DIR, "company_list_with_details.csv"),
-    "notices_dir": os.path.join(DATA_DIR, "notice"),
-    "events": os.path.join(DATA_DIR, "jianweidata_event.csv"),
-    "news": os.path.join(DATA_DIR, "jianweidata_news.csv"),
-    "sector_data_file": os.path.join(DATA_DIR, "all_sector_info.csv"),
-    "ipo_data": os.path.join(DATA_DIR, "ipo_data_with_timeline.csv"),
-    "ipo_rank": os.path.join(DATA_DIR, "ipo_rank.csv"),
-    "timeline_details": os.path.join(DATA_DIR, "timeline_details.csv"),
-    "ipo_review": os.path.join(DATA_DIR, "ipo_review.csv")
+    "CompanyModel": os.path.join(DATA_DIR, "company.csv"),
+    "NoticeModel": os.path.join(DATA_DIR, "notice"),
+    "EventModel": os.path.join(DATA_DIR, "event.csv"),
+    "NewsModel": os.path.join(DATA_DIR, "news.csv"),
+    "SectorInfoModel": os.path.join(DATA_DIR, "sector_info.csv"),
+    "IPODataModel": os.path.join(DATA_DIR, "ipo_data.csv"),
+    "IPORankModel": os.path.join(DATA_DIR, "ipo_rank.csv"),
+    "TimelineDetailModel": os.path.join(DATA_DIR, "timeline_details.csv"),
+    "IPOReviewModel": os.path.join(DATA_DIR, "ipo_review.csv")
 }
 
 class Database:
@@ -82,10 +82,10 @@ class Database:
             
             # 2. Load other standard files
             file_map = {
-                "company_list_with_details.csv": (CompanyModel, "companies", "stockCode"),
-                "jianweidata_event.csv": (EventModel, "events", None),
-                "jianweidata_news.csv": (NewsModel, "news", None),
-                "ipo_data_with_timeline.csv": (IPODataModel, "ipo_data", None),
+                "company.csv": (CompanyModel, "companies", "stockCode"),
+                "event.csv": (EventModel, "events", None),
+                "news.csv": (NewsModel, "news", None),
+                "ipo_data.csv": (IPODataModel, "ipo_data", None),
                 "ipo_rank.csv": (IPORankModel, "ipo_ranks", None),
                 "timeline_details.csv": (TimelineDetailModel, "timeline_details", "stockCode"),
                 "ipo_review.csv": (IPOReviewModel, "ipo_reviews", None)
@@ -124,6 +124,12 @@ class Database:
                             if "listingMarket" in df.columns and "ListingMarket" in df.columns:
                                 df = df.rename(columns={"listingMarket": "listingMarket_detail"})
 
+                        # Filter columns: Keep only those that exist in the SQLAlchemy model
+                        # This prevents "table has no column named X" errors
+                        model_columns = {c.name for c in model.__table__.columns}
+                        existing_columns = [c for c in df.columns if c in model_columns]
+                        df = df[existing_columns]
+
                         print(f"Inserting {len(df)} items into {table_name}...")
                         df.to_sql(table_name, con=session.bind, if_exists='append', index=False, chunksize=1000)
                         print(f"Loaded {table_name}.")
@@ -131,7 +137,7 @@ class Database:
                         print(f"Error loading {filename}: {e}")
             
             # 3. Sector Info
-            sector_file = os.path.join(directory, "all_sector_info.csv")
+            sector_file = os.path.join(directory, "sector_info.csv")
             if os.path.exists(sector_file):
                 print(f"Loading sector info from {sector_file}...")
                 try:
