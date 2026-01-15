@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Any, List
 
-# 1. Company Detail Model (Matches company_list_with_details.xlsx)
+# 1. Company Detail Model
 class Company(BaseModel):
     id: Optional[str] = None # Added unique ID
     MarketName: Optional[str] = None
@@ -85,25 +85,25 @@ class Notice(BaseModel):
     IntermediaryType: Optional[str] = None
     LawType: Optional[str] = None
     Institutions: Optional[str] = None
-    MarketType: Optional[Any] = None # Could be int or str
+    MarketType: Optional[str] = None
 
 # 3. Event Model
 class Event(BaseModel):
-    id: Optional[str] = None # Added unique ID
+    id: Optional[str] = None 
     event_id: Optional[str] = None
     en_title: Optional[str] = None
-    market: Optional[str] = None # Changed from int to str
+    market: Optional[str] = None 
     title: Optional[str] = None
     min_publish_date: Optional[str] = None
     max_publish_date: Optional[str] = None
     count: Optional[int] = None
     heat: Optional[float] = None
-    sentiment: Optional[str] = None # Changed from float to str to handle "正面"/"负面"
+    sentiment: Optional[str] = None
     companies: Optional[str] = None
 
 # 4. News Model
 class News(BaseModel):
-    id: Optional[str] = None # Added unique ID
+    id: Optional[str] = None
     newsId: Optional[str] = None
     enTitle: Optional[str] = None
     title: Optional[str] = None
@@ -127,7 +127,7 @@ class FacetItem(BaseModel):
 
 class Facets(BaseModel):
     publish_entity: List[FacetItem] = []
-    publish_entity_count: int = 0 # Total unique entities count
+    publish_entity_count: int = 0 
     Category: List[FacetItem] = []
     NoticeType: List[FacetItem] = []
     Industry: List[FacetItem] = []
@@ -250,7 +250,6 @@ class IPORank(BaseModel):
     listBoard: Optional[str] = None
     lawOffice: Optional[str] = None
     sName: Optional[str] = None
-    industry: Optional[str] = None # Note: Duplicate field name in source (Industry vs industry), model handles case-sensitivity? Pydantic fields are case-sensitive.
     chairman: Optional[str] = None
     email: Optional[str] = None
     numberEmployees: Optional[int] = None
@@ -261,13 +260,12 @@ class IPORank(BaseModel):
     isListed: Optional[int] = None
     topTenShareholders: Optional[str] = None
     updateTime: Optional[str] = None
-    listingMarket: Optional[str] = None # Lowercase version
     ipoCompRFA: Optional[str] = None
     timingPlan: Optional[str] = None
-    # Dropped: region, securitiesType, mainBusinessScope, independentDirector, accountingFirm (lowercase), city, seniorExecutive, listedExchange, refiOrMergeInfo
+
 
 class IPOTimeline(BaseModel):
-    id: Optional[str] = None # Added unique ID
+    id: Optional[str] = None
     Source: Optional[str] = None
     Title: Optional[str] = None
     Content: Optional[str] = None
