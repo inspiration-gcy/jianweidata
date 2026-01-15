@@ -137,18 +137,27 @@ class Facets(BaseModel):
 class NoticeListResponse(BaseModel):
     total: int
     data: List[Notice]
-    facets: Optional[Facets] = None
+    facets: Optional[Dict[str, Any]] = None
 
 class NoticeFilterRequest(BaseModel):
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)
+    sector: str = Field(..., description="The sector name")
+    
+    # Common filters
     stock_code: Optional[List[str]] = None
-    sector: Optional[str] = None # Changed to single string
     category: Optional[List[str]] = None
     notice_type: Optional[List[str]] = None
     industry: Optional[List[str]] = None
     market_type: Optional[List[str]] = None
     province: Optional[List[str]] = None
+    
+    # New filters from config
+    publisher: Optional[List[str]] = None # issuer
+    institutions: Optional[List[str]] = None
+    source: Optional[List[str]] = None
+    intermediary_type: Optional[List[str]] = None
+    intermediary_name: Optional[List[str]] = None
     
     # Exclude filters
     stock_code_exclude: Optional[List[str]] = None
@@ -157,6 +166,12 @@ class NoticeFilterRequest(BaseModel):
     industry_exclude: Optional[List[str]] = None
     market_type_exclude: Optional[List[str]] = None
     province_exclude: Optional[List[str]] = None
+    
+    publisher_exclude: Optional[List[str]] = None
+    institutions_exclude: Optional[List[str]] = None
+    source_exclude: Optional[List[str]] = None
+    intermediary_type_exclude: Optional[List[str]] = None
+    intermediary_name_exclude: Optional[List[str]] = None
     
     # New filters
     start_date: Optional[str] = None

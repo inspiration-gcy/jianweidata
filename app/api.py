@@ -111,6 +111,50 @@ async def get_top_companies_by_board(db_session: Session = Depends(get_db)):
     return result
 
 # --- Notices ---
+
+SECTOR_FIELD_CONFIG = {
+    "三市公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "新三板公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "港股中文": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}],
+    "港股英文": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}],
+    "美股": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}],
+    "法规库": [{"name": "法规类型", "field": "StockCode"}, {"name": "地域分布", "field": "Province"}, {"name": "发布机构", "field": "Institutions"}],
+    "债券公告": [{"name": "债券名称", "field": "StockCode"}, {"name": "发行人", "field": "Publisher"}, {"name": "市场类型", "field": "MarketType"}, {"name": "债券品种", "field": "Category"}, {"name": "公告类型", "field": "NoticeType"}],
+    "投行业务审核进程": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "公募基金公告": [{"name": "匹配基金", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "基金管理人", "field": "Publisher"}],
+    "科创板公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "辅导信息": [{"name": "公告类型", "field": "NoticeType"}, {"name": "监管机构", "field": "StockCode"}],
+    "投资者互动问答": [{"name": "发布主体", "field": "StockCode"}, {"name": "是否回复", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "政府采购招标": [{"name": "公告类型", "field": "NoticeType"}, {"name": "项目类型", "field": "Category"}, {"name": "招标机构", "field": "StockCode"}, {"name": "地域分布", "field": "Province"}],
+    "招股书比对": [],
+    "创业板审核公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "北交所公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}],
+    "证券行业监管信息": [{"name": "数据来源", "field": "Source"}, {"name": "监管机构", "field": "StockCode"}, {"name": "监管措施", "field": "Category"}],
+    "科创板反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
+    "上市公司函件问答": [{"name": "发布主体", "field": "StockCode"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}],
+    "综合反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}],
+    "创业板反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
+    "债券反馈问答": [{"name": "发布主体", "field": "StockCode"}],
+    "北交所反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
+    "主板反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
+    "微信搜索": [{"name": "公告类型", "field": "NoticeType"}]
+}
+
+# Map Config Field -> (Request Field Name, DB Column)
+FIELD_MAPPING = {
+    "StockCode": ("stock_code", NoticeModel.StockCode),
+    "NoticeType": ("notice_type", NoticeModel.NoticeType),
+    "Industry": ("industry", NoticeModel.Industry),
+    "MarketType": ("market_type", NoticeModel.MarketType),
+    "Province": ("province", NoticeModel.Province),
+    "Category": ("category", NoticeModel.Category),
+    "Publisher": ("publisher", NoticeModel.Publisher),
+    "Institutions": ("institutions", NoticeModel.Institutions),
+    "Source": ("source", NoticeModel.Source),
+    "IntermediaryType": ("intermediary_type", NoticeModel.IntermediaryType),
+    "IntermediaryName": ("intermediary_name", NoticeModel.IntermediaryName),
+}
+
 @app.post("/notices", response_model=NoticeListResponse)
 async def get_notices(
     request: NoticeFilterRequest, 
@@ -125,37 +169,38 @@ async def get_notices(
     # Build query
     query = db_session.query(NoticeModel)
     
-    # Standard Filtering
-    if request.sector:
-        query = query.filter(NoticeModel.sector == request.sector)
-    if request.stock_code:
-        query = query.filter(NoticeModel.StockCode.in_(request.stock_code))
-    if request.category:
-        query = query.filter(NoticeModel.Category.in_(request.category))
-    if request.notice_type:
-        query = query.filter(NoticeModel.NoticeType.in_(request.notice_type))
-    if request.industry:
-        query = query.filter(NoticeModel.Industry.in_(request.industry))
-    if request.market_type:
-        query = query.filter(NoticeModel.MarketType.in_([str(m) for m in request.market_type]))
-    if request.province:
-        query = query.filter(NoticeModel.Province.in_(request.province))
+    # 1. Sector Filter (Mandatory)
+    query = query.filter(NoticeModel.sector == request.sector)
+    
+    # 2. Dynamic Field Filtering based on Sector Config
+    valid_fields = SECTOR_FIELD_CONFIG.get(request.sector, [])
+    
+    for field_config in valid_fields:
+        config_field_name = field_config["field"]
         
-    # Standard Excluding
-    if request.stock_code_exclude:
-        query = query.filter(NoticeModel.StockCode.notin_(request.stock_code_exclude))
-    if request.category_exclude:
-        query = query.filter(NoticeModel.Category.notin_(request.category_exclude))
-    if request.notice_type_exclude:
-        query = query.filter(NoticeModel.NoticeType.notin_(request.notice_type_exclude))
-    if request.industry_exclude:
-        query = query.filter(NoticeModel.Industry.notin_(request.industry_exclude))
-    if request.market_type_exclude:
-        query = query.filter(NoticeModel.MarketType.notin_([str(m) for m in request.market_type_exclude]))
-    if request.province_exclude:
-        query = query.filter(NoticeModel.Province.notin_(request.province_exclude))
+        if config_field_name in FIELD_MAPPING:
+            req_field, db_col = FIELD_MAPPING[config_field_name]
+            
+            # Get values from request
+            # Include filter
+            include_vals = getattr(request, req_field, None)
+            if include_vals:
+                if config_field_name == "markettype":
+                    # MarketType stored as string in DB, ensure string comparison
+                    query = query.filter(db_col.in_([str(m) for m in include_vals]))
+                else:
+                    query = query.filter(db_col.in_(include_vals))
+            
+            # Exclude filter
+            exclude_field = f"{req_field}_exclude"
+            exclude_vals = getattr(request, exclude_field, None)
+            if exclude_vals:
+                if config_field_name == "markettype":
+                    query = query.filter(db_col.notin_([str(m) for m in exclude_vals]))
+                else:
+                    query = query.filter(db_col.notin_(exclude_vals))
         
-    # Date Range
+    # 3. Date Range (Global)
     if request.start_date:
         query = query.filter(NoticeModel.PublishDate >= request.start_date)
     if request.end_date:
@@ -181,7 +226,7 @@ async def get_notices(
             
         return q
 
-    # Title Search
+    # 4. Title Search (Global)
     if request.title_search_all:
         query = apply_keyword_filter(query, NoticeModel.Title, request.title_search_all, "all")
     if request.title_search_any:
@@ -189,7 +234,7 @@ async def get_notices(
     if request.title_search_none:
         query = apply_keyword_filter(query, NoticeModel.Title, request.title_search_none, "none")
         
-    # Content Search (Preview)
+    # 5. Content Search (Preview) (Global)
     if request.content_search_all:
         query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search_all, "all")
     if request.content_search_any:
@@ -206,48 +251,45 @@ async def get_notices(
     # Pagination
     notices = query.offset((current_page - 1) * current_page_size).limit(current_page_size).all()
     
-    # Facets Implementation
-    facet_fields = {
-        "publish_entity": NoticeModel.StockCode,
-        "Category": NoticeModel.Category,
-        "NoticeType": NoticeModel.NoticeType,
-        "Industry": NoticeModel.Industry,
-        "MarketType": NoticeModel.MarketType,
-        "Province": NoticeModel.Province
-    }
-    
+    # 6. Facets Implementation (Dynamic)
     facets = {}
     
-    # Calculate publish_entity count (total unique entities in current query)
-    publish_entity_count = query.with_entities(NoticeModel.StockCode).distinct().count()
-    facets["publish_entity_count"] = publish_entity_count
-    
-    for field_name, model_col in facet_fields.items():
-        # Special handling for publish_entity to return "Code Ticker" format
-        if field_name == "publish_entity":
-             # Group by StockCode, but fetch a sample StockTicker to display
-             agg_query = query.with_entities(
+    for field_config in valid_fields:
+        config_field_name = field_config["field"]
+        
+        if config_field_name not in FIELD_MAPPING:
+            continue
+            
+        _, db_col = FIELD_MAPPING[config_field_name]
+        
+        # Special handling for StockCode (Code + Ticker)
+        if config_field_name == "StockCode":
+            # 1. Count distinct entities
+            publish_entity_count = query.with_entities(NoticeModel.StockCode).distinct().count()
+            facets["publish_entity_count"] = publish_entity_count
+            
+            # 2. Top entities
+            agg_query = query.with_entities(
                  NoticeModel.StockCode, 
-                 func.max(NoticeModel.StockTicker), # Get a ticker for this code
+                 func.max(NoticeModel.StockTicker), 
                  func.count(NoticeModel.StockCode)
              ).group_by(NoticeModel.StockCode).order_by(func.count(NoticeModel.StockCode).desc()).limit(50)
              
-             results = agg_query.all()
-             facets[field_name] = [
+            results = agg_query.all()
+            facets[config_field_name] = [
                  {"name": f"{r[0]} {r[1]}", "count": r[2]} 
                  for r in results if r[0] is not None
-             ]
-             continue
-
-        # Construct aggregation query
-        agg_query = query.with_entities(model_col, func.count(model_col)).group_by(model_col).order_by(func.count(model_col).desc()).limit(50)
-        
-        results = agg_query.all()
-        
-        facets[field_name] = [
-            {"name": str(r[0]), "count": r[1]} 
-            for r in results if r[0] is not None
-        ]
+            ]
+        else:
+            # Standard aggregation
+            agg_query = query.with_entities(db_col, func.count(db_col)).group_by(db_col).order_by(func.count(db_col).desc()).limit(50)
+            
+            results = agg_query.all()
+            
+            facets[config_field_name] = [
+                {"name": str(r[0]), "count": r[1]} 
+                for r in results if r[0] is not None
+            ]
     
     return {
         "total": total,
