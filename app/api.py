@@ -126,10 +126,10 @@ async def get_notices(
     query = db_session.query(NoticeModel)
     
     # Standard Filtering
-    if request.stock_code:
-        query = query.filter(NoticeModel.StockCode.in_(request.stock_code))
     if request.sector:
         query = query.filter(NoticeModel.sector == request.sector)
+    if request.stock_code:
+        query = query.filter(NoticeModel.StockCode.in_(request.stock_code))
     if request.category:
         query = query.filter(NoticeModel.Category.in_(request.category))
     if request.notice_type:
@@ -140,6 +140,20 @@ async def get_notices(
         query = query.filter(NoticeModel.MarketType.in_([str(m) for m in request.market_type]))
     if request.province:
         query = query.filter(NoticeModel.Province.in_(request.province))
+        
+    # Standard Excluding
+    if request.stock_code_exclude:
+        query = query.filter(NoticeModel.StockCode.notin_(request.stock_code_exclude))
+    if request.category_exclude:
+        query = query.filter(NoticeModel.Category.notin_(request.category_exclude))
+    if request.notice_type_exclude:
+        query = query.filter(NoticeModel.NoticeType.notin_(request.notice_type_exclude))
+    if request.industry_exclude:
+        query = query.filter(NoticeModel.Industry.notin_(request.industry_exclude))
+    if request.market_type_exclude:
+        query = query.filter(NoticeModel.MarketType.notin_([str(m) for m in request.market_type_exclude]))
+    if request.province_exclude:
+        query = query.filter(NoticeModel.Province.notin_(request.province_exclude))
         
     # Date Range
     if request.start_date:

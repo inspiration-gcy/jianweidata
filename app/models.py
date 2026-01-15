@@ -144,12 +144,19 @@ class NoticeFilterRequest(BaseModel):
     page_size: int = Field(20, ge=1, le=100)
     stock_code: Optional[List[str]] = None
     sector: Optional[str] = None # Changed to single string
-    publish_entity: Optional[List[str]] = None
     category: Optional[List[str]] = None
     notice_type: Optional[List[str]] = None
     industry: Optional[List[str]] = None
     market_type: Optional[List[str]] = None
     province: Optional[List[str]] = None
+    
+    # Exclude filters
+    stock_code_exclude: Optional[List[str]] = None
+    category_exclude: Optional[List[str]] = None
+    notice_type_exclude: Optional[List[str]] = None
+    industry_exclude: Optional[List[str]] = None
+    market_type_exclude: Optional[List[str]] = None
+    province_exclude: Optional[List[str]] = None
     
     # New filters
     start_date: Optional[str] = None
