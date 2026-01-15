@@ -176,7 +176,6 @@ class NoticeFilterRequest(BaseModel):
     # New filters
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    company_search: Optional[str] = None # Fuzzy search for code/ticker
     
     title_search_all: Optional[str] = None
     title_search_any: Optional[str] = None
