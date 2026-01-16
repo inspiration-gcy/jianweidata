@@ -5,7 +5,7 @@ import glob
 import uuid
 from app.db import (
     SessionLocal, init_db, 
-    CompanyModel, EventModel, NewsModel, 
+    CompanyModel, EventModel, NewsModel, SectorInfoModel,
     IPODataModel, IPORankModel, TimelineDetailModel, IPOReviewModel
 )
 
@@ -141,11 +141,7 @@ class Database:
                         
                         # Special handling for 'industry' in IPORank to avoid conflict if needed
                         if table_name == "ipo_ranks":
-                            if "industry" in df.columns and "Industry" in df.columns:
-                                # Rename lowercase industry to industry_detail
-                                df = df.rename(columns={"industry": "industry_detail"})
-                            if "listingMarket" in df.columns and "ListingMarket" in df.columns:
-                                df = df.rename(columns={"listingMarket": "listingMarket_detail"})
+                            pass
 
                         # Filter columns: Keep only those that exist in the SQLAlchemy model
                         # This prevents "table has no column named X" errors
@@ -162,7 +158,6 @@ class Database:
             # 3. Sector Info
             if not model_name or model_name == "SectorInfoModel":
                 if model_name == "SectorInfoModel":
-                    from app.db import SectorInfoModel, NewsModel
                     # Clear SectorInfoModel
                     clear_table(SectorInfoModel)
                     

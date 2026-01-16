@@ -276,8 +276,8 @@ async def get_notices(
              ).group_by(NoticeModel.StockCode).order_by(func.count(NoticeModel.StockCode).desc()).limit(50)
              
             results = agg_query.all()
-            facets[config_field_name] = [
-                 {"name": f"{r[0]} {r[1]}", "count": r[2]} 
+            facets["publish_entity"] = [
+                 {"name": f"{r[0]} {r[1] if r[1] else ''}".strip(), "count": r[2]} 
                  for r in results if r[0] is not None
             ]
         else:
