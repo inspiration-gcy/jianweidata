@@ -421,6 +421,11 @@ class NoticeFilterRequest(BaseModel):
     content_search_all: Optional[str] = None
     content_search_any: Optional[str] = None
     content_search_none: Optional[str] = None
+    
+    # AQ Search (List of strings, each must be in Preview)
+    aq_search_all: Optional[List[str]] = None
+    aq_search_any: Optional[List[str]] = None
+    aq_search_none: Optional[List[str]] = None
 
 class EventListResponse(BaseModel):
     total: int

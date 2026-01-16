@@ -242,6 +242,25 @@ async def get_notices(
     if request.content_search_none:
         query = apply_keyword_filter(query, NoticeModel.Preview, request.content_search_none, "none")
         
+    # 6. AQ Search (List of strings) - Applied to Preview
+    # aq_search_all: Each string in the list must be present in Preview
+    if request.aq_search_all:
+        for term in request.aq_search_all:
+            if term:
+                query = query.filter(NoticeModel.Preview.ilike(f"%{term}%"))
+                
+    # aq_search_any: At least one string in the list must be present in Preview
+    if request.aq_search_any:
+        conditions = [NoticeModel.Preview.ilike(f"%{term}%") for term in request.aq_search_any if term]
+        if conditions:
+            query = query.filter(or_(*conditions))
+            
+    # aq_search_none: None of the strings in the list should be present in Preview
+    if request.aq_search_none:
+        for term in request.aq_search_none:
+            if term:
+                query = query.filter(~NoticeModel.Preview.ilike(f"%{term}%"))
+        
     # Total count (slow on large dataset, maybe optimize later)
     total = query.count()
     
