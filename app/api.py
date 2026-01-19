@@ -81,7 +81,7 @@ async def get_company_by_id(company_id: str, db_session: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Company not found")
     return company
 
-@app.get("/companies/boards/top", response_model=Dict[str, List[str]])
+@app.get("/companies/boards/top", response_model=Dict[str, List[CompanySearchItem]])
 async def get_top_companies_by_board(db_session: Session = Depends(get_db)):
     """
     Get top 100 companies for each A-share board.
@@ -105,8 +105,13 @@ async def get_top_companies_by_board(db_session: Session = Depends(get_db)):
         for c in companies:
             code = c.stockCode or ""
             ticker = c.Ticker or ""
-            label = f"{code} {ticker}".strip()
-            result[board_name].append(label)
+
+            result[board_name].append(CompanySearchItem(
+                id=str(c.id),
+                label=f"{code} {ticker}".strip(),
+                stockCode=code,
+                ticker=ticker
+            ))
                 
     return result
 
