@@ -126,7 +126,7 @@ SECTOR_FIELD_CONFIG = {
     "辅导信息": [{"name": "公告类型", "field": "NoticeType"}, {"name": "监管机构", "field": "StockCode"}],
     "投资者互动问答": [{"name": "发布主体", "field": "StockCode"}, {"name": "是否回复", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
     "政府采购招标": [{"name": "公告类型", "field": "NoticeType"}, {"name": "项目类型", "field": "Category"}, {"name": "招标机构", "field": "StockCode"}, {"name": "地域分布", "field": "Province"}],
-    "招股书比对": [],
+    "招股书比对": [{"name": "发布主体", "field": "StockCode"}],
     "创业板审核公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
     "北交所公告": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}],
     "证券行业监管信息": [{"name": "数据来源", "field": "Source"}, {"name": "监管机构", "field": "StockCode"}, {"name": "监管措施", "field": "Category"}],
@@ -201,10 +201,11 @@ async def get_notices(
                     query = query.filter(db_col.notin_(exclude_vals))
         
     # 3. Date Range (Global)
-    if request.start_date:
-        query = query.filter(NoticeModel.PublishDate >= request.start_date)
-    if request.end_date:
-        query = query.filter(NoticeModel.PublishDate <= request.end_date)
+    if request.start_date and request.end_date:
+        query = query.filter(
+            NoticeModel.PublishDate >= request.start_date,
+            NoticeModel.PublishDate <= request.end_date
+        )
               
     def apply_keyword_filter(q, col, search_text, match_mode):
         if not search_text:
@@ -286,6 +287,7 @@ async def get_notices(
             # 1. Count distinct entities
             publish_entity_count = query.with_entities(NoticeModel.StockCode).distinct().count()
             facets["publish_entity_count"] = publish_entity_count
+            config_field_name = "publish_entity" if request.sector != "辅导信息" else "StockCode"
             
             # 2. Top entities
             agg_query = query.with_entities(
@@ -295,7 +297,7 @@ async def get_notices(
              ).group_by(NoticeModel.StockCode).order_by(func.count(NoticeModel.StockCode).desc()).limit(50)
              
             results = agg_query.all()
-            facets["publish_entity"] = [
+            facets[config_field_name] = [
                  {"name": f"{r[0]} {r[1] if r[1] else ''}".strip(), "count": r[2]} 
                  for r in results if r[0] is not None
             ]
@@ -507,16 +509,75 @@ async def get_timeline_details(
     stock_code: str = Query("000001", description="Stock Code to filter timeline details"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    title_search_all: Optional[str] = Query(None, description="All keywords match in title"),
+    title_search_any: Optional[str] = Query(None, description="Any keywords match in title"),
+    title_search_none: Optional[str] = Query(None, description="No keywords match in title"),
+    category_name: Optional[List[str]] = Query(None, description="Filter by category_name"),
+    category_name_exclude: Optional[List[str]] = Query(None, description="Exclude by category_name"),
+    start_date: Optional[str] = Query(None, description="Start date (inclusive)"),
+    end_date: Optional[str] = Query(None, description="End date (inclusive)"),
     db_session: Session = Depends(get_db)
 ):
     query = db_session.query(TimelineDetailModel).filter(TimelineDetailModel.stockCode == stock_code)
     
+
+    # Date Range
+    if start_date and end_date:
+        query = query.filter(
+            TimelineDetailModel.publishDate >= start_date,
+            TimelineDetailModel.publishDate <= end_date
+        )
+    
+    # Category Filter
+    if category_name:
+        query = query.filter(TimelineDetailModel.category_name.in_(category_name))
+    if category_name_exclude:
+        query = query.filter(TimelineDetailModel.category_name.notin_(category_name_exclude))
+    
+    # Helper for keyword filtering (reused from notices logic basically)
+    def apply_keyword_filter(q, col, search_text, match_mode):
+        if not search_text:
+            return q
+        keywords = search_text.split()
+        if not keywords:
+            return q
+        if match_mode == "all":
+            for k in keywords:
+                q = q.filter(col.ilike(f"%{k}%"))
+        elif match_mode == "any":
+            conditions = [col.ilike(f"%{k}%") for k in keywords]
+            q = q.filter(or_(*conditions))
+        elif match_mode == "none":
+            for k in keywords:
+                q = q.filter(~col.ilike(f"%{k}%"))
+        return q
+
+    # Title Search
+    if title_search_all:
+        query = apply_keyword_filter(query, TimelineDetailModel.title, title_search_all, "all")
+    if title_search_any:
+        query = apply_keyword_filter(query, TimelineDetailModel.title, title_search_any, "any")
+    if title_search_none:
+        query = apply_keyword_filter(query, TimelineDetailModel.title, title_search_none, "none")
+    
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     
+    # Facets: category_name counts
+    # We need to compute counts for all categories based on the current filter (excluding category_name filter itself? usually facets respect other filters)
+    # But usually facets show distribution. 
+    # Let's count grouping by category_name
+    facet_query = query.with_entities(TimelineDetailModel.category_name, func.count(TimelineDetailModel.category_name)).group_by(TimelineDetailModel.category_name)
+    facet_results = facet_query.all()
+    
+    category_facets = [
+        {"name": r[0], "count": r[1]} for r in facet_results if r[0]
+    ]
+    
     return {
         "total": total,
-        "data": items
+        "data": items,
+        "facets": {"category_name": category_facets}
     }
 
 # --- IPO Review ---

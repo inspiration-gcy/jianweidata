@@ -121,6 +121,10 @@ class Database:
                     try:
                         df = pd.read_csv(fpath, low_memory=False)
                         df = df.where(pd.notnull(df), None)
+
+                        if "stockCode" in df.columns:
+                            df['stockCode'] = df['stockCode'].astype(str)
+                        
                         if str_col and str_col in df.columns:
                             df[str_col] = df[str_col].astype(str)
                         

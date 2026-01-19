@@ -285,6 +285,7 @@ class TimelineDetail(BaseModel):
 class TimelineDetailListResponse(BaseModel):
     total: int
     data: List[TimelineDetail]
+    facets: Optional[Dict[str, Any]] = None
 
 # 7. IPO Review Model
 class IPOReview(BaseModel):
