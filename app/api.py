@@ -298,7 +298,7 @@ async def get_notices(
              
             results = agg_query.all()
             facets[config_field_name] = [
-                 {"name": f"{r[0]} {r[1] if r[1] else ''}".strip(), "count": r[2]} 
+                 {"name": f"{r[0]} {r[1] if r[1] else ''}".strip(), "count": r[2], "StockCode": r[0]} 
                  for r in results if r[0] is not None
             ]
         else:
