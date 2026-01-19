@@ -137,7 +137,9 @@ SECTOR_FIELD_CONFIG = {
     "债券反馈问答": [{"name": "发布主体", "field": "StockCode"}],
     "北交所反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
     "主板反馈问答": [{"name": "匹配主体", "field": "StockCode"}, {"name": "中介机构类型", "field": "IntermediaryType"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "地域分布", "field": "Province"}, {"name": "中介机构名称", "field": "IntermediaryName"}, {"name": "市场类型", "field": "MarketType"}],
-    "微信搜索": [{"name": "公告类型", "field": "NoticeType"}]
+    "微信搜索": [{"name": "公告类型", "field": "NoticeType"}],
+    "再融资": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}],
+    "并购重组": [{"name": "发布主体", "field": "StockCode"}, {"name": "公告类型", "field": "NoticeType"}, {"name": "行业统计", "field": "Industry"}, {"name": "市场类型", "field": "MarketType"}, {"name": "地域分布", "field": "Province"}]
 }
 
 # Map Config Field -> (Request Field Name, DB Column)
