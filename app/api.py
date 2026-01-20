@@ -13,14 +13,18 @@ from app.models import (
     IPODataBasic, IPOListResponse,
     IPORankBasic, IPORankListResponse,
     TimelineDetailListResponse,
-    IPOReviewBasic, IPOReviewListResponse
+    IPOReviewBasic, IPOReviewListResponse,
+    FavoriteNoticeRequest, FavoriteNoticeResponse
 )
 from app.db import (
     get_db, 
     CompanyModel, NoticeModel, EventModel, NewsModel, 
-    IPODataModel, IPORankModel, TimelineDetailModel, IPOReviewModel, SectorInfoModel
+    IPODataModel, IPORankModel, TimelineDetailModel, IPOReviewModel, SectorInfoModel,
+    FavoriteNoticeModel
 )
 from app.database import db
+import uuid
+import datetime
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -324,6 +328,60 @@ async def get_notices(
         "data": notices,
         "facets": facets
     }
+
+@app.post("/notices/favorite", response_model=FavoriteNoticeResponse)
+async def toggle_favorite_notice(request: FavoriteNoticeRequest, db_session: Session = Depends(get_db)):
+    """
+    Toggle favorite status for a notice. 
+    If it exists, remove it. If not, add it.
+    """
+    # Check if notice exists
+    notice = db_session.query(NoticeModel).filter(NoticeModel.id == request.notice_id).first()
+    if not notice:
+        raise HTTPException(status_code=404, detail="Notice not found")
+        
+    # Check if already favorite (assume single user for now)
+    user_id = "default_user"
+    existing_fav = db_session.query(FavoriteNoticeModel).filter(
+        FavoriteNoticeModel.notice_id == request.notice_id,
+        FavoriteNoticeModel.user_id == user_id
+    ).first()
+    
+    if existing_fav:
+        # Remove
+        db_session.delete(existing_fav)
+        db_session.commit()
+        
+        # Update NoticeModel.IsFav
+        notice.IsFav = "0"
+        db_session.commit()
+        
+        return FavoriteNoticeResponse(
+            id=existing_fav.id,
+            notice_id=request.notice_id,
+            status="removed"
+        )
+    else:
+        # Add
+        fav_id = str(uuid.uuid4())
+        new_fav = FavoriteNoticeModel(
+            id=fav_id,
+            notice_id=request.notice_id,
+            user_id=user_id,
+            create_time=datetime.datetime.now().isoformat()
+        )
+        db_session.add(new_fav)
+        
+        # Update NoticeModel.IsFav
+        notice.IsFav = "1"
+        
+        db_session.commit()
+        
+        return FavoriteNoticeResponse(
+            id=fav_id,
+            notice_id=request.notice_id,
+            status="added"
+        )
 
 # --- Events ---
 @app.get("/events/top", response_model=EventListResponse)

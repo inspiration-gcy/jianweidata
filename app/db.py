@@ -330,6 +330,14 @@ class IPOReviewModel(Base):
     updateTime = Column(String)
     website = Column(String)
 
+class FavoriteNoticeModel(Base):
+    __tablename__ = "favorite_notices"
+    
+    id = Column(String, primary_key=True, index=True)
+    notice_id = Column(String, index=True)
+    user_id = Column(String, index=True, default="default_user") # Placeholder for user system
+    create_time = Column(String)
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

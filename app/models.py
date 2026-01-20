@@ -442,6 +442,14 @@ class InfoSource(BaseModel):
     SourceUrl: Optional[str] = None
     news: List[News] = []
 
+class FavoriteNoticeRequest(BaseModel):
+    notice_id: str
+
+class FavoriteNoticeResponse(BaseModel):
+    id: str
+    notice_id: str
+    status: str # "added" or "removed"
+
 class SectorInformation(BaseModel):
     sector: str
     information: List[InfoSource]
