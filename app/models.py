@@ -443,12 +443,15 @@ class InfoSource(BaseModel):
     news: List[News] = []
 
 class FavoriteNoticeRequest(BaseModel):
+    notice_ids: List[str]
+
+class FavoriteItemResponse(BaseModel):
+    id: Optional[str] = None
     notice_id: str
+    status: str # "added" or "removed" or "not_found"
 
 class FavoriteNoticeResponse(BaseModel):
-    id: str
-    notice_id: str
-    status: str # "added" or "removed"
+    results: List[FavoriteItemResponse]
 
 class SectorInformation(BaseModel):
     sector: str

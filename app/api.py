@@ -14,7 +14,7 @@ from app.models import (
     IPORankBasic, IPORankListResponse,
     TimelineDetailListResponse,
     IPOReviewBasic, IPOReviewListResponse,
-    FavoriteNoticeRequest, FavoriteNoticeResponse
+    FavoriteNoticeRequest, FavoriteNoticeResponse, FavoriteItemResponse
 )
 from app.db import (
     get_db, 
@@ -330,58 +330,69 @@ async def get_notices(
     }
 
 @app.post("/notices/favorite", response_model=FavoriteNoticeResponse)
-async def toggle_favorite_notice(request: FavoriteNoticeRequest, db_session: Session = Depends(get_db)):
+async def toggle_favorite_notices(request: FavoriteNoticeRequest, db_session: Session = Depends(get_db)):
     """
-    Toggle favorite status for a notice. 
-    If it exists, remove it. If not, add it.
+    Toggle favorite status for multiple notices. 
+    If a notice is favorite, remove it. If not, add it.
     """
-    # Check if notice exists
-    notice = db_session.query(NoticeModel).filter(NoticeModel.id == request.notice_id).first()
-    if not notice:
-        raise HTTPException(status_code=404, detail="Notice not found")
-        
-    # Check if already favorite (assume single user for now)
     user_id = "default_user"
-    existing_fav = db_session.query(FavoriteNoticeModel).filter(
-        FavoriteNoticeModel.notice_id == request.notice_id,
-        FavoriteNoticeModel.user_id == user_id
-    ).first()
+    results = []
     
-    if existing_fav:
-        # Remove
-        db_session.delete(existing_fav)
-        db_session.commit()
+    # 1. Fetch all target notices at once
+    notices = db_session.query(NoticeModel).filter(NoticeModel.id.in_(request.notice_ids)).all()
+    notice_map = {n.id: n for n in notices}
+    
+    # 2. Fetch all existing favorites for these notices
+    existing_favs = db_session.query(FavoriteNoticeModel).filter(
+        FavoriteNoticeModel.notice_id.in_(request.notice_ids),
+        FavoriteNoticeModel.user_id == user_id
+    ).all()
+    fav_map = {f.notice_id: f for f in existing_favs}
+    
+    current_time = datetime.datetime.now().isoformat()
+    
+    for notice_id in request.notice_ids:
+        notice = notice_map.get(notice_id)
+        if not notice:
+            results.append({
+                "notice_id": notice_id,
+                "status": "not_found"
+            })
+            continue
+            
+        existing_fav = fav_map.get(notice_id)
         
-        # Update NoticeModel.IsFav
-        notice.IsFav = "0"
-        db_session.commit()
-        
-        return FavoriteNoticeResponse(
-            id=existing_fav.id,
-            notice_id=request.notice_id,
-            status="removed"
-        )
-    else:
-        # Add
-        fav_id = str(uuid.uuid4())
-        new_fav = FavoriteNoticeModel(
-            id=fav_id,
-            notice_id=request.notice_id,
-            user_id=user_id,
-            create_time=datetime.datetime.now().isoformat()
-        )
-        db_session.add(new_fav)
-        
-        # Update NoticeModel.IsFav
-        notice.IsFav = "1"
-        
-        db_session.commit()
-        
-        return FavoriteNoticeResponse(
-            id=fav_id,
-            notice_id=request.notice_id,
-            status="added"
-        )
+        if existing_fav:
+            # Remove
+            db_session.delete(existing_fav)
+            notice.IsFav = "0"
+            
+            results.append({
+                "id": existing_fav.id,
+                "notice_id": notice_id,
+                "status": "removed"
+            })
+        else:
+            # Add
+            fav_id = str(uuid.uuid4())
+            new_fav = FavoriteNoticeModel(
+                id=fav_id,
+                notice_id=notice_id,
+                user_id=user_id,
+                create_time=current_time
+            )
+            db_session.add(new_fav)
+            notice.IsFav = "1"
+            
+            results.append({
+                "id": fav_id,
+                "notice_id": notice_id,
+                "status": "added"
+            })
+    
+    db_session.commit()
+    
+    return {"results": results}
 
 # --- Events ---
 @app.get("/events/top", response_model=EventListResponse)
