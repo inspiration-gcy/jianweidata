@@ -54,11 +54,6 @@ class Database:
             # 1. Load Notices
             if not model_name or model_name == "NoticeModel":
                 if model_name == "NoticeModel":
-                    # For NoticeModel, we clear the table explicitly if requested
-                    # But notice logic below is complex (split files), let's see.
-                    # The original code didn't clear notices. If user asks for specific model load, we MUST clear.
-                    # But wait, NoticeModel is mapped to 'notices' table.
-                    # We need to import NoticeModel inside or use the one from app.db
                     from app.db import NoticeModel
                     clear_table(NoticeModel)
 
@@ -70,12 +65,20 @@ class Database:
                     if files:
                         print(f"Found {len(files)} split notice CSV files in notice/ dir")
                         
+                        # Use list to collect DataFrames for batch insert
+                        # Or process in parallel? SQLite doesn't like parallel writes.
+                        # Optimization: Increase chunksize and use 'multi' method if possible (not in standard pandas to_sql for sqlite)
+                        # Optimization: Use transaction for all files? Already inside a session transaction?
+                        # session.commit() is at the end. But to_sql uses its own connection/transaction unless we pass the connection.
+                        # We are passing session.bind (engine).
+                        
                         for f in files:
                             try:
                                 print(f"Reading {os.path.basename(f)}...")
                                 df = pd.read_csv(f, low_memory=False)
                                 df = df.where(pd.notnull(df), None)
                                 if 'StockCode' in df.columns:
+                                    # Ensure StockCode is string
                                     df['StockCode'] = df['StockCode'].astype(str)
                                 
                                 # Generate IDs
@@ -88,9 +91,9 @@ class Database:
                                 if 'MarketType' in df.columns:
                                     df['MarketType'] = df['MarketType'].astype(str)
 
-                                # Bulk Insert
+                                # Bulk Insert - Optimized chunksize
                                 print(f"Inserting {len(df)} notices...")
-                                df.to_sql('notices', con=session.bind, if_exists='append', index=False, chunksize=1000)
+                                df.to_sql('notices', con=session.bind, if_exists='append', index=False, chunksize=5000, method='multi')
                                 print("Done.")
                             except Exception as e:
                                 print(f"Error reading/inserting {f}: {e}")
@@ -154,7 +157,7 @@ class Database:
                         df = df[existing_columns]
 
                         print(f"Inserting {len(df)} items into {table_name}...")
-                        df.to_sql(table_name, con=session.bind, if_exists='append', index=False, chunksize=1000)
+                        df.to_sql(table_name, con=session.bind, if_exists='append', index=False, chunksize=5000, method='multi')
                         print(f"Loaded {table_name}.")
                     except Exception as e:
                         print(f"Error loading {filename}: {e}")
