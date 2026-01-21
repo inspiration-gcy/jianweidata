@@ -442,6 +442,15 @@ class NoticeFilterRequest(BaseModel):
     aq_search_any: Optional[List[str]] = None
     aq_search_none: Optional[List[str]] = None
 
+class GlobalSearchRequest(BaseModel):
+    keyword: str = Field(..., min_length=1, description="Search keyword")
+    limit: int = Field(20, ge=1, le=100, description="Items per sector")
+    page: int = Field(1, ge=1, description="Page number")
+    stock_code: Optional[str] = Field(None, description="Filter by stock code")
+    start_date: Optional[str] = Field(None, description="Start date (inclusive)")
+    end_date: Optional[str] = Field(None, description="End date (inclusive)")
+    order_by: str = Field("desc", description="Sort order: 'desc' (newest), 'asc' (oldest), 'company' (company aggregation)")
+
 class EventListResponse(BaseModel):
     total: int
     data: List[Event]

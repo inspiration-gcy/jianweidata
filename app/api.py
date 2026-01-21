@@ -15,7 +15,7 @@ from app.models import (
     TimelineDetailListResponse,
     IPOReviewBasic, IPOReviewListResponse,
     FavoriteNoticeRequest, FavoriteNoticeResponse, FavoriteItemResponse,
-    GlobalSearchResponse, SectorSearchGroup
+    GlobalSearchResponse, SectorSearchGroup, GlobalSearchRequest
 )
 from app.db import (
     get_db, 
@@ -332,13 +332,7 @@ async def get_notices(
 
 @app.post("/notices/search", response_model=GlobalSearchResponse)
 async def global_search_notices(
-    keyword: str = Query(..., min_length=1, description="Search keyword"),
-    limit: int = Query(20, ge=1, le=100, description="Items per sector"),
-    page: int = Query(1, ge=1, description="Page number"),
-    stock_code: Optional[str] = Query(None, description="Filter by stock code"),
-    start_date: Optional[str] = Query(None, description="Start date (inclusive)"),
-    end_date: Optional[str] = Query(None, description="End date (inclusive)"),
-    order_by: str = Query("desc", description="Sort order: 'desc' (newest), 'asc' (oldest), 'company' (company aggregation)"),
+    request: GlobalSearchRequest,
     db_session: Session = Depends(get_db)
 ):
     """
@@ -346,17 +340,17 @@ async def global_search_notices(
     Returns top {limit} results for each sector where keyword matches.
     Matches against: Title, StockCode, StockTicker, NoticeType, Publisher
     """
-    keyword_like = f"%{keyword}%"
+    keyword_like = f"%{request.keyword}%"
     
     # Base query filters (Date and StockCode)
     filters = []
     
-    if stock_code:
-        filters.append(NoticeModel.StockCode == stock_code)
+    if request.stock_code:
+        filters.append(NoticeModel.StockCode == request.stock_code)
         
-    if start_date and end_date:
-        filters.append(NoticeModel.PublishDate >= start_date)
-        filters.append(NoticeModel.PublishDate <= end_date)
+    if request.start_date and request.end_date:
+        filters.append(NoticeModel.PublishDate >= request.start_date)
+        filters.append(NoticeModel.PublishDate <= request.end_date)
     
     # 1. Get all sectors that have matches
     # We want to search across multiple columns.
@@ -395,7 +389,7 @@ async def global_search_notices(
             full_condition
         )
         
-        if order_by == "company":
+        if request.order_by == "company":
             # Aggregate by company (StockCode)
             # Sort by latest notice date of the company (descending)
             
@@ -433,8 +427,8 @@ async def global_search_notices(
             aggregated_list = [grouped_data[k] for k in company_order]
             
             # Apply pagination to the AGGREGATED list
-            start_idx = (page - 1) * limit
-            end_idx = start_idx + limit
+            start_idx = (request.page - 1) * request.limit
+            end_idx = start_idx + request.limit
             paged_items = aggregated_list[start_idx:end_idx]
             
             results[sector] = SectorSearchGroup(
@@ -444,12 +438,12 @@ async def global_search_notices(
             )
             
         else:
-            if order_by == "asc":
+            if request.order_by == "asc":
                 query = query.order_by(NoticeModel.PublishDate.asc())
             else: # desc
                 query = query.order_by(NoticeModel.PublishDate.desc())
                 
-            items = query.offset((page - 1) * limit).limit(limit).all()
+            items = query.offset((request.page - 1) * request.limit).limit(request.limit).all()
             
             # Convert SQLAlchemy objects to dicts
             items_dict = []
