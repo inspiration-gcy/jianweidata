@@ -367,14 +367,8 @@ async def global_search_notices(
         NoticeModel.StockCode.ilike(keyword_like),
         NoticeModel.StockTicker.ilike(keyword_like),
         NoticeModel.NoticeType.ilike(keyword_like),
-        NoticeModel.Publisher.ilike(keyword_like),
-        NoticeModel.Category.ilike(keyword_like),
-        NoticeModel.Industry.ilike(keyword_like),
         NoticeModel.MarketType.ilike(keyword_like),
         NoticeModel.Province.ilike(keyword_like),
-        NoticeModel.Institutions.ilike(keyword_like),
-        NoticeModel.Source.ilike(keyword_like),
-        NoticeModel.IntermediaryName.ilike(keyword_like),
         NoticeModel.Preview.ilike(keyword_like)
     )
     
@@ -402,28 +396,72 @@ async def global_search_notices(
         )
         
         if order_by == "company":
-            # Aggregate by company (StockCode), sort by date desc within company
-            query = query.order_by(NoticeModel.StockCode.asc(), NoticeModel.PublishDate.desc())
-        elif order_by == "asc":
-            query = query.order_by(NoticeModel.PublishDate.asc())
-        else: # desc
+            # Aggregate by company (StockCode)
+            # Sort by latest notice date of the company (descending)
+            
+            # 1. Query all matching items sorted by date desc
+            # This ensures that when we iterate, the first time we see a company, it's because of its latest notice.
             query = query.order_by(NoticeModel.PublishDate.desc())
             
-        items = query.offset((page - 1) * limit).limit(limit).all()
-        
-        # Convert SQLAlchemy objects to dicts to avoid Pydantic validation errors
-        # if the model fields don't match exactly 1:1 or if there are extra fields
-        items_dict = []
-        for item in items:
-            # Use __dict__ but remove internal SA state
-            d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
-            items_dict.append(d)
-        
-        results[sector] = SectorSearchGroup(
-            sector=sector,
-            total=count,
-            data=items_dict
-        )
+            all_items = query.all()
+            
+            # Group by StockCode + StockTicker
+            grouped_data = {}
+            company_order = [] # To maintain order based on latest notice
+            
+            for item in all_items:
+                # Use StockCode as primary key, Ticker might change but usually we group by Code
+                # Use tuple key to include Ticker in result if needed, or just take the latest Ticker
+                key = item.StockCode
+                
+                if key not in grouped_data:
+                    grouped_data[key] = {
+                        "StockCode": item.StockCode,
+                        "StockTicker": item.StockTicker, # Use the ticker from the latest notice
+                        "count": 0,
+                        "data": []
+                    }
+                    company_order.append(key)
+                
+                grouped_data[key]["count"] += 1
+                
+                # Add item dict
+                d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
+                grouped_data[key]["data"].append(d)
+                
+            # Convert to list based on company_order (which is sorted by latest notice date)
+            aggregated_list = [grouped_data[k] for k in company_order]
+            
+            # Apply pagination to the AGGREGATED list
+            start_idx = (page - 1) * limit
+            end_idx = start_idx + limit
+            paged_items = aggregated_list[start_idx:end_idx]
+            
+            results[sector] = SectorSearchGroup(
+                sector=sector,
+                total=len(aggregated_list), # Total companies found
+                data=paged_items
+            )
+            
+        else:
+            if order_by == "asc":
+                query = query.order_by(NoticeModel.PublishDate.asc())
+            else: # desc
+                query = query.order_by(NoticeModel.PublishDate.desc())
+                
+            items = query.offset((page - 1) * limit).limit(limit).all()
+            
+            # Convert SQLAlchemy objects to dicts
+            items_dict = []
+            for item in items:
+                d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
+                items_dict.append(d)
+            
+            results[sector] = SectorSearchGroup(
+                sector=sector,
+                total=count,
+                data=items_dict
+            )
         
     return GlobalSearchResponse(results=results)
 
