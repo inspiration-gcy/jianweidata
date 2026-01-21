@@ -14,8 +14,8 @@ from app.models import (
     IPORankBasic, IPORankListResponse,
     TimelineDetailListResponse,
     IPOReviewBasic, IPOReviewListResponse,
-    FavoriteNoticeRequest, FavoriteNoticeResponse, FavoriteItemResponse,
-    GlobalSearchResponse, SectorSearchGroup, GlobalSearchRequest
+    FavoriteNoticeRequest, FavoriteNoticeResponse,
+    GlobalSearchResponse, GlobalSearchRequest
 )
 from app.db import (
     get_db, 
@@ -352,6 +352,8 @@ async def global_search_notices(
         filters.append(NoticeModel.PublishDate >= request.start_date)
         filters.append(NoticeModel.PublishDate <= request.end_date)
     
+    filters.append(NoticeModel.sector == request.sector)
+    
     # 1. Get all sectors that have matches
     # We want to search across multiple columns.
     # Condition: Title LIKE %k% OR StockCode LIKE %k% OR ...
@@ -371,93 +373,103 @@ async def global_search_notices(
     for f in filters:
         full_condition = (full_condition) & (f)
     
-    # Get counts per sector
-    sector_counts = db_session.query(
-        NoticeModel.sector, 
-        func.count(NoticeModel.id)
-    ).filter(full_condition).group_by(NoticeModel.sector).all()
+    # Query builder
+    query = db_session.query(NoticeModel).filter(full_condition)
     
-    results = {}
+    # Results container
+    final_results = []
+    total_count = 0
     
-    # 2. For each sector, fetch top N items
-    for sector, count in sector_counts:
-        if not sector:
-            continue
-            
-        query = db_session.query(NoticeModel).filter(
-            NoticeModel.sector == sector,
+    if request.order_by == "company":
+        # Aggregate by company (StockCode)
+        # Optimized approach: 
+        # 1. Calculate total companies matching criteria
+        # 2. Query distinct companies for current page (sorted by latest notice)
+        # 3. Fetch full details only for those companies
+        
+        # 1. Total Count (Distinct StockCode + StockTicker)
+        # Note: func.count(func.distinct(NoticeModel.StockCode)) can be slow on large datasets in SQLite
+        # but it's necessary for correct pagination metadata.
+        # We need to count distinct pairs (StockCode, StockTicker). 
+        # SQLite doesn't support COUNT(DISTINCT col1, col2). 
+        # Workaround: Count distinct concatenation or use subquery.
+        # Using subquery for better compatibility
+        count_sub_q = db_session.query(
+            NoticeModel.StockCode, NoticeModel.StockTicker
+        ).filter(full_condition).group_by(NoticeModel.StockCode, NoticeModel.StockTicker).subquery()
+        
+        total_count = db_session.query(func.count()).select_from(count_sub_q).scalar()
+        
+        # 2. Get StockCodes for current page
+        # Group by StockCode + StockTicker to find the latest date for each company
+        sub_q = db_session.query(
+            NoticeModel.StockCode,
+            NoticeModel.StockTicker,
+            func.max(NoticeModel.PublishDate).label('max_date')
+        ).filter(
             full_condition
+        ).group_by(
+            NoticeModel.StockCode,
+            NoticeModel.StockTicker
+        ).order_by(
+            func.max(NoticeModel.PublishDate).desc()
+        ).offset(
+            (request.page - 1) * request.limit
+        ).limit(
+            request.limit
         )
         
-        if request.order_by == "company":
-            # Aggregate by company (StockCode)
-            # Sort by latest notice date of the company (descending)
+        paged_companies = sub_q.all() # List of (StockCode, StockTicker, max_date)
+        
+        final_results = []
+        
+        if paged_companies:
+            # We need to fetch details for these specific (StockCode, StockTicker) pairs.
+            # Building a tuple IN clause is not standard in all SQL dialects, but SQLAlchemy supports tuple_
+            from sqlalchemy import tuple_
             
-            # 1. Query all matching items sorted by date desc
-            # This ensures that when we iterate, the first time we see a company, it's because of its latest notice.
+            target_pairs = [(r.StockCode, r.StockTicker) for r in paged_companies]
+            
+            details = db_session.query(NoticeModel).filter(
+                full_condition,
+                tuple_(NoticeModel.StockCode, NoticeModel.StockTicker).in_(target_pairs)
+            ).order_by(NoticeModel.PublishDate.desc()).all()
+            
+            # Group in memory
+            # Initialize map with order from paged_companies
+            # Key must be (StockCode, StockTicker)
+            grouped_map = {(code, ticker): {"StockCode": code, "StockTicker": ticker, "count": 0, "data": []} 
+                           for code, ticker, _ in paged_companies}
+            
+            for item in details:
+                key = (item.StockCode, item.StockTicker)
+                if key in grouped_map:
+                    grouped_map[key]["count"] += 1
+                    # Convert to dict
+                    d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
+                    grouped_map[key]["data"].append(d)
+            
+            # Reconstruct list in correct order
+            for code, ticker, _ in paged_companies:
+                key = (code, ticker)
+                if key in grouped_map:
+                    final_results.append(grouped_map[key])
+        
+    else:
+        if request.order_by == "asc":
+            query = query.order_by(NoticeModel.PublishDate.asc())
+        else: # desc
             query = query.order_by(NoticeModel.PublishDate.desc())
             
-            all_items = query.all()
-            
-            # Group by StockCode + StockTicker
-            grouped_data = {}
-            company_order = [] # To maintain order based on latest notice
-            
-            for item in all_items:
-                # Use StockCode as primary key, Ticker might change but usually we group by Code
-                # Use tuple key to include Ticker in result if needed, or just take the latest Ticker
-                key = item.StockCode
-                
-                if key not in grouped_data:
-                    grouped_data[key] = {
-                        "StockCode": item.StockCode,
-                        "StockTicker": item.StockTicker, # Use the ticker from the latest notice
-                        "count": 0,
-                        "data": []
-                    }
-                    company_order.append(key)
-                
-                grouped_data[key]["count"] += 1
-                
-                # Add item dict
-                d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
-                grouped_data[key]["data"].append(d)
-                
-            # Convert to list based on company_order (which is sorted by latest notice date)
-            aggregated_list = [grouped_data[k] for k in company_order]
-            
-            # Apply pagination to the AGGREGATED list
-            start_idx = (request.page - 1) * request.limit
-            end_idx = start_idx + request.limit
-            paged_items = aggregated_list[start_idx:end_idx]
-            
-            results[sector] = SectorSearchGroup(
-                sector=sector,
-                total=len(aggregated_list), # Total companies found
-                data=paged_items
-            )
-            
-        else:
-            if request.order_by == "asc":
-                query = query.order_by(NoticeModel.PublishDate.asc())
-            else: # desc
-                query = query.order_by(NoticeModel.PublishDate.desc())
-                
-            items = query.offset((request.page - 1) * request.limit).limit(request.limit).all()
-            
-            # Convert SQLAlchemy objects to dicts
-            items_dict = []
-            for item in items:
-                d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
-                items_dict.append(d)
-            
-            results[sector] = SectorSearchGroup(
-                sector=sector,
-                total=count,
-                data=items_dict
-            )
+        total_count = query.count()
+        items = query.offset((request.page - 1) * request.limit).limit(request.limit).all()
         
-    return GlobalSearchResponse(results=results)
+        # Convert SQLAlchemy objects to dicts
+        for item in items:
+            d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
+            final_results.append(d)
+    
+    return GlobalSearchResponse(total=total_count, data=final_results)
 
 @app.post("/notices/favorite", response_model=FavoriteNoticeResponse)
 async def toggle_favorite_notices(request: FavoriteNoticeRequest, db_session: Session = Depends(get_db)):

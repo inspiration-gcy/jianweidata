@@ -359,13 +359,9 @@ class CompanyBaseItem(BaseModel):
     stockCode: Optional[str] = None
     ticker: Optional[str] = None
 
-class SectorSearchGroup(BaseModel):
-    sector: str
-    total: int
-    data: List[Dict[str, Any]] # Can be Notice dict or Company Aggregation dict
-
 class GlobalSearchResponse(BaseModel):
-    results: Dict[str, SectorSearchGroup] # Key is sector name
+    total: int
+    data: List[Dict[str, Any]]
 
 
 class FacetItem(BaseModel):
@@ -450,6 +446,7 @@ class GlobalSearchRequest(BaseModel):
     start_date: Optional[str] = Field(None, description="Start date (inclusive)")
     end_date: Optional[str] = Field(None, description="End date (inclusive)")
     order_by: str = Field("desc", description="Sort order: 'desc' (newest), 'asc' (oldest), 'company' (company aggregation)")
+    sector: Optional[str] = Field("三市公告", description="Sector name filter")
 
 class EventListResponse(BaseModel):
     total: int
