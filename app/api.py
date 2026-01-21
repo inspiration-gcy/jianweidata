@@ -334,9 +334,11 @@ async def get_notices(
 async def global_search_notices(
     keyword: str = Query(..., min_length=1, description="Search keyword"),
     limit: int = Query(20, ge=1, le=100, description="Items per sector"),
+    page: int = Query(1, ge=1, description="Page number"),
     stock_code: Optional[str] = Query(None, description="Filter by stock code"),
     start_date: Optional[str] = Query(None, description="Start date (inclusive)"),
     end_date: Optional[str] = Query(None, description="End date (inclusive)"),
+    order_by: str = Query("desc", description="Sort order: 'desc' (newest), 'asc' (oldest), 'company' (company aggregation)"),
     db_session: Session = Depends(get_db)
 ):
     """
@@ -394,15 +396,33 @@ async def global_search_notices(
         if not sector:
             continue
             
-        items = db_session.query(NoticeModel).filter(
+        query = db_session.query(NoticeModel).filter(
             NoticeModel.sector == sector,
             full_condition
-        ).order_by(NoticeModel.PublishDate.desc()).limit(limit).all()
+        )
+        
+        if order_by == "company":
+            # Aggregate by company (StockCode), sort by date desc within company
+            query = query.order_by(NoticeModel.StockCode.asc(), NoticeModel.PublishDate.desc())
+        elif order_by == "asc":
+            query = query.order_by(NoticeModel.PublishDate.asc())
+        else: # desc
+            query = query.order_by(NoticeModel.PublishDate.desc())
+            
+        items = query.offset((page - 1) * limit).limit(limit).all()
+        
+        # Convert SQLAlchemy objects to dicts to avoid Pydantic validation errors
+        # if the model fields don't match exactly 1:1 or if there are extra fields
+        items_dict = []
+        for item in items:
+            # Use __dict__ but remove internal SA state
+            d = {k: v for k, v in item.__dict__.items() if not k.startswith('_')}
+            items_dict.append(d)
         
         results[sector] = SectorSearchGroup(
             sector=sector,
             total=count,
-            data=items
+            data=items_dict
         )
         
     return GlobalSearchResponse(results=results)

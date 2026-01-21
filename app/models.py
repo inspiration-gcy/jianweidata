@@ -362,7 +362,7 @@ class CompanyBaseItem(BaseModel):
 class SectorSearchGroup(BaseModel):
     sector: str
     total: int
-    data: List[Notice]
+    data: List[Dict[str, Any]]
 
 class GlobalSearchResponse(BaseModel):
     results: Dict[str, SectorSearchGroup] # Key is sector name
