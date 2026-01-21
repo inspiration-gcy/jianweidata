@@ -353,15 +353,25 @@ class IPOReviewListResponse(BaseModel):
     data: List[IPOReviewBasic]
 
 # Response Models (List wrappers)
-class CompanySearchItem(BaseModel):
+class CompanyBaseItem(BaseModel):
     id: str
     label: str
     stockCode: Optional[str] = None
     ticker: Optional[str] = None
 
+class SectorSearchGroup(BaseModel):
+    sector: str
+    total: int
+    data: List[Notice]
+
+class GlobalSearchResponse(BaseModel):
+    results: Dict[str, SectorSearchGroup] # Key is sector name
+
+
 class FacetItem(BaseModel):
     name: str
     count: int
+    StockCode: Optional[str] = None
 
 class Facets(BaseModel):
     publish_entity: List[FacetItem] = []
@@ -371,6 +381,10 @@ class Facets(BaseModel):
     Industry: List[FacetItem] = []
     MarketType: List[FacetItem] = []
     Province: List[FacetItem] = []
+    Institutions: List[FacetItem] = []
+    Source: List[FacetItem] = []
+    IntermediaryType: List[FacetItem] = []
+    IntermediaryName: List[FacetItem] = []
 
 class NoticeListResponse(BaseModel):
     total: int

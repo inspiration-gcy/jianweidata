@@ -9,12 +9,13 @@ import json
 from app.models import (
     Company,IPORank,IPOData,IPOReview,
     NoticeListResponse, EventListResponse, NewsListResponse,
-    NoticeFilterRequest, SectorInformation, CompanySearchItem,
+    NoticeFilterRequest, SectorInformation, CompanyBaseItem,
     IPODataBasic, IPOListResponse,
     IPORankBasic, IPORankListResponse,
     TimelineDetailListResponse,
     IPOReviewBasic, IPOReviewListResponse,
-    FavoriteNoticeRequest, FavoriteNoticeResponse, FavoriteItemResponse
+    FavoriteNoticeRequest, FavoriteNoticeResponse, FavoriteItemResponse,
+    GlobalSearchResponse, SectorSearchGroup
 )
 from app.db import (
     get_db, 
@@ -40,7 +41,7 @@ app = FastAPI(title="Jianwei Data API", lifespan=lifespan)
 
 # --- Companies ---
 
-@app.get("/companies/search", response_model=List[CompanySearchItem])
+@app.get("/companies/search", response_model=List[CompanyBaseItem])
 async def search_companies(
     keyword: str = Query(..., min_length=1),
     limit: int = Query(6, ge=1, le=20),
@@ -65,7 +66,7 @@ async def search_companies(
     for c in query.all():
         stock_code = c.stockCode or ""
         ticker = c.Ticker or ""
-        results.append(CompanySearchItem(
+        results.append(CompanyBaseItem(
             id=str(c.id),
             label=f"[{stock_code} {ticker}]",
             stockCode=stock_code,
@@ -85,7 +86,7 @@ async def get_company_by_id(company_id: str, db_session: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Company not found")
     return company
 
-@app.get("/companies/boards/top", response_model=Dict[str, List[CompanySearchItem]])
+@app.get("/companies/boards/top", response_model=Dict[str, List[CompanyBaseItem]])
 async def get_top_companies_by_board(db_session: Session = Depends(get_db)):
     """
     Get top 100 companies for each A-share board.
@@ -110,7 +111,7 @@ async def get_top_companies_by_board(db_session: Session = Depends(get_db)):
             code = c.stockCode or ""
             ticker = c.Ticker or ""
 
-            result[board_name].append(CompanySearchItem(
+            result[board_name].append(CompanyBaseItem(
                 id=str(c.id),
                 label=f"{code} {ticker}".strip(),
                 stockCode=code,
@@ -328,6 +329,83 @@ async def get_notices(
         "data": notices,
         "facets": facets
     }
+
+@app.post("/notices/search", response_model=GlobalSearchResponse)
+async def global_search_notices(
+    keyword: str = Query(..., min_length=1, description="Search keyword"),
+    limit: int = Query(20, ge=1, le=100, description="Items per sector"),
+    stock_code: Optional[str] = Query(None, description="Filter by stock code"),
+    start_date: Optional[str] = Query(None, description="Start date (inclusive)"),
+    end_date: Optional[str] = Query(None, description="End date (inclusive)"),
+    db_session: Session = Depends(get_db)
+):
+    """
+    Global search for notices across all sectors.
+    Returns top {limit} results for each sector where keyword matches.
+    Matches against: Title, StockCode, StockTicker, NoticeType, Publisher
+    """
+    keyword_like = f"%{keyword}%"
+    
+    # Base query filters (Date and StockCode)
+    filters = []
+    
+    if stock_code:
+        filters.append(NoticeModel.StockCode == stock_code)
+        
+    if start_date and end_date:
+        filters.append(NoticeModel.PublishDate >= start_date)
+        filters.append(NoticeModel.PublishDate <= end_date)
+    
+    # 1. Get all sectors that have matches
+    # We want to search across multiple columns.
+    # Condition: Title LIKE %k% OR StockCode LIKE %k% OR ...
+    
+    search_condition = or_(
+        NoticeModel.Title.ilike(keyword_like),
+        NoticeModel.StockCode.ilike(keyword_like),
+        NoticeModel.StockTicker.ilike(keyword_like),
+        NoticeModel.NoticeType.ilike(keyword_like),
+        NoticeModel.Publisher.ilike(keyword_like),
+        NoticeModel.Category.ilike(keyword_like),
+        NoticeModel.Industry.ilike(keyword_like),
+        NoticeModel.MarketType.ilike(keyword_like),
+        NoticeModel.Province.ilike(keyword_like),
+        NoticeModel.Institutions.ilike(keyword_like),
+        NoticeModel.Source.ilike(keyword_like),
+        NoticeModel.IntermediaryName.ilike(keyword_like),
+        NoticeModel.Preview.ilike(keyword_like)
+    )
+    
+    # Combine all filters
+    full_condition = search_condition
+    for f in filters:
+        full_condition = (full_condition) & (f)
+    
+    # Get counts per sector
+    sector_counts = db_session.query(
+        NoticeModel.sector, 
+        func.count(NoticeModel.id)
+    ).filter(full_condition).group_by(NoticeModel.sector).all()
+    
+    results = {}
+    
+    # 2. For each sector, fetch top N items
+    for sector, count in sector_counts:
+        if not sector:
+            continue
+            
+        items = db_session.query(NoticeModel).filter(
+            NoticeModel.sector == sector,
+            full_condition
+        ).order_by(NoticeModel.PublishDate.desc()).limit(limit).all()
+        
+        results[sector] = SectorSearchGroup(
+            sector=sector,
+            total=count,
+            data=items
+        )
+        
+    return GlobalSearchResponse(results=results)
 
 @app.post("/notices/favorite", response_model=FavoriteNoticeResponse)
 async def toggle_favorite_notices(request: FavoriteNoticeRequest, db_session: Session = Depends(get_db)):
